@@ -1,0 +1,43 @@
+name: Parse and Combine App Ads Daily
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  parse_and_combine:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install requests beautifulsoup4
+
+    - name: Run parse and combine script
+      id: parse_and_combine
+      env:
+        APP_ADS_URLS: ${{ secrets.APP_ADS_URLS }}
+      run: |
+        python scripts/parse_and_combine_app_ads.py
+
+    - name: Commit and push changes
+      if: steps.parse_and_combine.outputs.changes_detected == 'true'
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git fetch origin
+        git checkout ${{ github.ref_name }}
+        git pull origin ${{ github.ref_name }}
+        git add app-ads.txt
+        git commit -m "Update app-ads.txt daily"
+        git push origin HEAD:${{ github.ref_name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
